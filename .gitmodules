@@ -1,0 +1,6 @@
+[submodule "tinycbor"]
+	path = tinycbor
+	url = https://github.com/intel/tinycbor
+[submodule "tests/cmocka"]
+	path = tests/cmocka
+	url = https://git.cryptomilk.org/projects/cmocka.git
