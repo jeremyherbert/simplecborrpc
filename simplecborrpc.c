@@ -5,14 +5,14 @@
 static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_functions, size_t rpc_functions_count,
                                              const uint8_t *input_buffer, size_t input_buffer_size,
                                              uint8_t *output_buffer, size_t *output_buffer_size,
-                                             uint64_t *transaction_id, int64_t *error_code, const char **error_msg,
+                                             uint64_t *transaction_id, const char **error_msg,
                                              void *user_ptr) {
     CborParser parser;
     CborValue outer_it;
     CborValue inner_it, args_it;
 
     if (cbor_parser_init(input_buffer, input_buffer_size, 0, &parser, &outer_it) != CborNoError)
-        return RPC_ERROR_FAILED_CBOR_PARSER_INIT;
+        return RPC_ERROR_INTERNAL_ERROR;
 
     uint64_t version = 0;
     size_t handle = rpc_functions_count;
@@ -24,14 +24,15 @@ static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_fun
     CborValue id_it;
     if (cbor_value_map_find_value(&outer_it, "id", &id_it) != CborNoError) return RPC_ERROR_PARSER_FAILED;
     if (cbor_value_is_valid(&id_it)) {
-        cbor_value_get_uint64(&id_it, transaction_id);
+        if (cbor_value_is_unsigned_integer(&id_it)) {
+            cbor_value_get_uint64(&id_it, transaction_id);
+        } else {
+            return RPC_ERROR_PARSE_ERROR;
+        }
     } else {
         *transaction_id = 0;
     }
 
-    // reset parser
-    if (cbor_parser_init(input_buffer, input_buffer_size, 0, &parser, &outer_it) != CborNoError)
-        return RPC_ERROR_FAILED_CBOR_PARSER_INIT;
     if (cbor_value_enter_container(&outer_it, &inner_it) != CborNoError) return RPC_ERROR_PARSER_FAILED;
 
     while (!cbor_value_at_end(&inner_it)) {
@@ -42,7 +43,7 @@ static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_fun
         if (result) {
             if (cbor_value_advance(&inner_it) != CborNoError) return RPC_ERROR_PARSER_FAILED;
 
-            if (!cbor_value_is_integer(&inner_it)) return RPC_ERROR_INVALID_REQUEST;
+            if (!cbor_value_is_unsigned_integer(&inner_it)) return RPC_ERROR_INVALID_REQUEST;
 
             if (cbor_value_get_uint64(&inner_it, &version) != CborNoError) return RPC_ERROR_PARSER_FAILED;
 
@@ -198,15 +199,13 @@ static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_fun
 
     cbor_encode_text_stringz(&map_encoder, "res");
 
-    rpc_call_result_t result = rpc_functions[handle].function_ptr(&args_it, &map_encoder, error_code, error_msg,
-                                                                  user_ptr);
-
-    if (result == RPC_CALL_ERROR_FORCE_METHOD_NOT_FOUND) return RPC_ERROR_METHOD_NOT_FOUND;
+    rpc_error_t rpc_result = rpc_functions[handle].function_ptr(&args_it, &map_encoder, error_msg,
+                                                                user_ptr);
 
     cbor_encoder_close_container(&response_encoder, &map_encoder);
     *output_buffer_size = cbor_encoder_get_buffer_size(&response_encoder, output_buffer);
 
-    return RPC_OK;
+    return rpc_result;
 }
 
 static const char *error_to_string(rpc_error_t error) {
@@ -239,22 +238,21 @@ execute_rpc_call(const rpc_function_entry_t *rpc_functions, size_t rpc_functions
     size_t saved_buffer_size = *output_buffer_size;
     uint64_t transaction_id = 0;
 
-    int64_t error_code = 0;
     const char *error_msg = NULL;
-    rpc_error_t call_error = execute_rpc_call_internal(rpc_functions, rpc_functions_count, input_buffer, input_buffer_size,
-                                                  output_buffer, output_buffer_size, &transaction_id, &error_code,
-                                                  &error_msg, user_ptr);
+    rpc_error_t err = execute_rpc_call_internal(rpc_functions, rpc_functions_count, input_buffer, input_buffer_size,
+                                                output_buffer, output_buffer_size, &transaction_id,
+                                                &error_msg, user_ptr);
 
-    if (call_error != RPC_OK || error_code != 0 || error_msg != NULL) {
-        size_t result_key_count = 2;
+    if (err != RPC_OK || error_msg != NULL) {
+        size_t map_key_count = 2;
         if (transaction_id != 0) {
-            result_key_count = 3;
+            map_key_count = 3;
         }
 
         CborEncoder response_encoder, map_encoder;
 
         cbor_encoder_init(&response_encoder, output_buffer, saved_buffer_size, 0);
-        cbor_encoder_create_map(&response_encoder, &map_encoder, result_key_count);
+        cbor_encoder_create_map(&response_encoder, &map_encoder, map_key_count);
 
         cbor_encode_text_stringz(&map_encoder, "v");
         cbor_encode_uint(&map_encoder, 1);
@@ -269,20 +267,13 @@ execute_rpc_call(const rpc_function_entry_t *rpc_functions, size_t rpc_functions
         CborEncoder error_map_encoder;
         cbor_encoder_create_map(&map_encoder, &error_map_encoder, 2);
 
-        if (error_code != 0 || error_msg != NULL) {
-            cbor_encode_text_stringz(&error_map_encoder, "c");
-            cbor_encode_int(&error_map_encoder, error_code);
+        cbor_encode_text_stringz(&error_map_encoder, "c");
+        cbor_encode_int(&error_map_encoder, err);
 
-            cbor_encode_text_stringz(&error_map_encoder, "msg");
-            cbor_encode_text_stringz(&error_map_encoder, error_msg);
-        } else {
-            cbor_encode_text_stringz(&error_map_encoder, "c");
-            cbor_encode_int(&error_map_encoder, call_error);
+        cbor_encode_text_stringz(&error_map_encoder, "msg");
 
-            cbor_encode_text_stringz(&error_map_encoder, "msg");
-            cbor_encode_text_stringz(&error_map_encoder, error_to_string(call_error));
-        }
-
+        if (error_msg != NULL) cbor_encode_text_stringz(&error_map_encoder, error_msg);
+        else cbor_encode_text_stringz(&error_map_encoder, error_to_string(err));
 
         cbor_encoder_close_container(&map_encoder, &error_map_encoder);
 
@@ -291,5 +282,5 @@ execute_rpc_call(const rpc_function_entry_t *rpc_functions, size_t rpc_functions
         *output_buffer_size = cbor_encoder_get_buffer_size(&response_encoder, output_buffer);
     }
 
-    return call_error;
+    return err;
 }
