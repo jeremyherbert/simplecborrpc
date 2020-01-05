@@ -5,15 +5,16 @@
 #include "cmocka.h"
 
 #include "simplecborrpc.h"
+#include "rpc_api.h"
 
-static rpc_error_t
+rpc_error_t
 rpc_ping(const CborValue *args_iterator, CborEncoder *result, const char **error_msg, void *user_ptr) {
     cbor_encode_text_stringz(result, "pong");
 
     return RPC_OK;
 }
 
-static rpc_error_t
+rpc_error_t
 rpc_echo(const CborValue *args_iterator, CborEncoder *result, const char **error_msg, void *user_ptr) {
     size_t string_length = 0;
     cbor_value_get_string_length(args_iterator, &string_length);
@@ -30,18 +31,18 @@ rpc_echo(const CborValue *args_iterator, CborEncoder *result, const char **error
     return RPC_OK;
 }
 
-static rpc_error_t
+rpc_error_t
 rpc_always_error(const CborValue *args_iterator, CborEncoder *result, const char **error_msg, void *user_ptr) {
     *error_msg = "this is a test error";
 
     return RPC_ERROR_INTERNAL_ERROR;
 }
 
-static const rpc_function_entry_t rpc_function_table[] = {
-        {"ping",         rpc_ping,         RPC_ARGS()},
-        {"echo",         rpc_echo,         RPC_ARGS(CBOR_TYPE_TEXT_STRING)},
-        {"always_error", rpc_always_error, RPC_ARGS()}
-};
+//static const rpc_function_entry_t rpc_function_table[] = {
+//        {"ping",         rpc_ping,         RPC_ARGS()},
+//        {"echo",         rpc_echo,         RPC_ARGS(CBOR_TYPE_TEXT_STRING)},
+//        {"always_error", rpc_always_error, RPC_ARGS()}
+//};
 
 #define NUM_FUNCTION_HANDLES sizeof(rpc_function_table)/sizeof(rpc_function_entry_t)
 
@@ -166,12 +167,22 @@ static void method_not_found_test(void **state) {
     assert_memory_equal(expected_response, response_buffer, response_size);
 }
 
+static void lookup_test(void **state) {
+    assert_int_equal(rpc_lookup_by_key("ping"), 0);
+    assert_int_equal(rpc_lookup_by_key("echo"), 1);
+    assert_int_equal(rpc_lookup_by_key("always_error"), 2);
+
+    assert_int_equal(rpc_lookup_by_key("something"), -1);
+    assert_int_equal(rpc_lookup_by_key("this_key_is_far_too_long"), -1);
+}
+
 int main(void) {
     const struct CMUnitTest tests[] = {
             cmocka_unit_test(ping_test),
             cmocka_unit_test(echo_test),
             cmocka_unit_test(error_test),
-            cmocka_unit_test(method_not_found_test)
+            cmocka_unit_test(method_not_found_test),
+            cmocka_unit_test(lookup_test)
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

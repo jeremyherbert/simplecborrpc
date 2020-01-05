@@ -2,6 +2,8 @@
 
 #include "simplecborrpc.h"
 
+extern int rpc_lookup_by_key(const char *key);
+
 static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_functions, size_t rpc_functions_count,
                                              const uint8_t *input_buffer, size_t input_buffer_size,
                                              uint8_t *output_buffer, size_t *output_buffer_size,
@@ -69,16 +71,16 @@ static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_fun
 
             if (!cbor_value_is_text_string(&inner_it)) return RPC_ERROR_INVALID_REQUEST;
 
-            bool function_match = false;
-            for (size_t i = 0; i < rpc_functions_count; i++) {
-                cbor_value_text_string_equals(&inner_it, rpc_functions[i].name, &function_match);
-                if (function_match) {
-                    handle = i;
-                    break;
-                }
-            }
+            char tmp[33];
+            size_t key_size = 33;
+            if (cbor_value_copy_text_string(&inner_it, tmp, &key_size, NULL) != CborNoError) return RPC_ERROR_PARSER_FAILED;
 
-            if (!function_match) return RPC_ERROR_METHOD_NOT_FOUND;
+            if (key_size == 33) return RPC_ERROR_INVALID_REQUEST; // max size is 32 chars + null terminator
+
+            int32_t function_index = rpc_lookup_by_key(tmp);
+
+            if (function_index < 0) return RPC_ERROR_METHOD_NOT_FOUND;
+            else handle = function_index;
 
             if (cbor_value_advance(&inner_it) != CborNoError) return RPC_ERROR_PARSER_FAILED;
 

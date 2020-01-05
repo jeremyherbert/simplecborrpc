@@ -42,14 +42,19 @@ typedef enum {
 typedef rpc_error_t (*rpc_function_t)(const CborValue *args_iterator, CborEncoder *result, const char **error_msg,
                                       void *user_ptr);
 
-typedef struct {
+struct rpc_function_entry_s{
     const char *name;
 
     const rpc_function_t function_ptr;
 
     const rpc_argument_type_t *argument_types;
     const size_t number_of_arguments;
-} rpc_function_entry_t;
+};
+
+typedef struct rpc_function_entry_s rpc_function_entry_t;
+
+#define RPC_FUNC(X) rpc_error_t \
+                    X(const CborValue *args_iterator, CborEncoder *result, const char **error_msg, void *user_ptr)
 
 #define RPC_ARGS(...) (rpc_argument_type_t[]){ __VA_ARGS__ }, sizeof((rpc_argument_type_t[]) { __VA_ARGS__ })/sizeof(rpc_argument_type_t)
 
