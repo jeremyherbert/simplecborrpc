@@ -57,6 +57,7 @@ typedef struct rpc_function_entry_s rpc_function_entry_t;
                     X(const CborValue *args_iterator, CborEncoder *result, const char **error_msg, void *user_ptr)
 
 #define RPC_ARGS(...) (rpc_argument_type_t[]){ __VA_ARGS__ }, sizeof((rpc_argument_type_t[]) { __VA_ARGS__ })/sizeof(rpc_argument_type_t)
+#define RPC_NO_ARGS NULL, 0
 
 rpc_error_t
 execute_rpc_call(const rpc_function_entry_t *rpc_functions, size_t rpc_functions_count, const uint8_t *input_buffer,

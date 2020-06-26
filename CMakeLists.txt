@@ -5,6 +5,9 @@ set(CMAKE_C_STANDARD 99)
 
 include_directories(. tests/cmocka/include tinycbor/src)
 
+string(APPEND CMAKE_C_FLAGS -Werror=pedantic)
+string(APPEND CMAKE_CXX_FLAGS -Werror=pedantic)
+
 if ("${CMAKE_C_COMPILER_ID}" MATCHES "(Apple)?[Cc]lang" OR
         "${CMAKE_CXX_COMPILER_ID}" MATCHES "(Apple)?[Cc]lang")
     string(APPEND CMAKE_C_FLAGS " -fprofile-instr-generate -fcoverage-mapping")

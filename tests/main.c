@@ -38,15 +38,92 @@ rpc_always_error(const CborValue *args_iterator, CborEncoder *result, const char
     return RPC_ERROR_INTERNAL_ERROR;
 }
 
-//static const rpc_function_entry_t rpc_function_table[] = {
-//        {"ping",         rpc_ping,         RPC_ARGS()},
-//        {"echo",         rpc_echo,         RPC_ARGS(CBOR_TYPE_TEXT_STRING)},
-//        {"always_error", rpc_always_error, RPC_ARGS()}
-//};
+rpc_error_t
+rpc_sum_array(const CborValue *args_iterator, CborEncoder *result, const char **error_msg, void *user_ptr) {
+    int64_t sum = 0;
+
+    CborValue iterator;
+    if (cbor_value_enter_container(args_iterator, &iterator) != CborNoError) return RPC_ERROR_PARSER_FAILED;
+    while (!cbor_value_at_end(&iterator)) {
+        if (cbor_value_is_integer(&iterator)) {
+            int64_t int_result;
+            cbor_value_get_int64(&iterator, &int_result);
+            sum += int_result;
+        } else {
+            *error_msg = "integers only";
+            return RPC_ERROR_INVALID_ARGS;
+        }
+
+        if (cbor_value_advance(&iterator) != CborNoError) return RPC_ERROR_PARSER_FAILED;
+    }
+
+    cbor_encode_int(result, sum);
+    return RPC_OK;
+}
 
 #define NUM_FUNCTION_HANDLES sizeof(rpc_function_table)/sizeof(rpc_function_entry_t)
 
 //////////////////////////////////
+
+static void sum_array_test(void **state) {
+    // request: {"v": 1, "id": 13, "func": "sum_array", "args":[[1,2,3,4,5]]}
+    uint8_t request[] = {0xA4, 0x61, 0x76, 0x01, 0x62,
+                         0x69, 0x64, 0x0D, 0x64, 0x66,
+                         0x75, 0x6E, 0x63, 0x69, 0x73,
+                         0x75, 0x6D, 0x5F, 0x61, 0x72,
+                         0x72, 0x61, 0x79, 0x64, 0x61,
+                         0x72, 0x67, 0x73, 0x81, 0x85,
+                         0x01, 0x02, 0x03, 0x04, 0x05};
+
+    // response: {"v": 1, "id": 13, "res": 15}
+    uint8_t expected_response[] = {0xA3, 0x61, 0x76, 0x01, 0x62,
+                                   0x69, 0x64, 0x0D, 0x63, 0x72,
+                                   0x65, 0x73, 0x0F};
+
+    uint8_t response_buffer[512];
+    memset(response_buffer, 0, sizeof(response_buffer));
+    size_t response_size = sizeof(response_buffer);
+
+    rpc_error_t err = execute_rpc_call(rpc_function_table, NUM_FUNCTION_HANDLES, request, sizeof(request), response_buffer,
+                                       &response_size, NULL);
+    assert_true(err == RPC_OK);
+    assert_int_equal(response_size, sizeof(expected_response));
+
+    assert_memory_equal(expected_response, response_buffer, sizeof(expected_response));
+}
+
+static void sum_array_bad_types_test(void **state) {
+    // request: {"v": 1, "id": 13, "func": "sum_array", "args":[[1,2,3,4,5,"a"]]}
+    uint8_t request[] = {0xA4, 0x61, 0x76, 0x01, 0x62,
+                         0x69, 0x64, 0x0D, 0x64, 0x66,
+                         0x75, 0x6E, 0x63, 0x69, 0x73,
+                         0x75, 0x6D, 0x5F, 0x61, 0x72,
+                         0x72, 0x61, 0x79, 0x64, 0x61,
+                         0x72, 0x67, 0x73, 0x81, 0x86,
+                         0x01, 0x02, 0x03, 0x04, 0x05,
+                         0x61, 0x61};
+
+    // response: {"v": 1, "id": 13, "err":{"c": -32602, "msg": "integers only"}}
+    uint8_t expected_response[] = {0xA3, 0x61, 0x76, 0x01, 0x62,
+                                   0x69, 0x64, 0x0D, 0x63, 0x65,
+                                   0x72, 0x72, 0xA2, 0x61, 0x63,
+                                   0x39, 0x7F, 0x59, 0x63, 0x6D,
+                                   0x73, 0x67, 0x6D, 0x69, 0x6E,
+                                   0x74, 0x65, 0x67, 0x65, 0x72,
+                                   0x73, 0x20, 0x6F, 0x6E, 0x6C,
+                                   0x79};
+
+    uint8_t response_buffer[512];
+    memset(response_buffer, 0, sizeof(response_buffer));
+    size_t response_size = sizeof(response_buffer);
+
+    rpc_error_t err = execute_rpc_call(rpc_function_table, NUM_FUNCTION_HANDLES, request, sizeof(request), response_buffer,
+                                       &response_size, NULL);
+    assert_true(err == RPC_ERROR_INVALID_ARGS);
+    assert_int_equal(response_size, sizeof(expected_response));
+
+    assert_memory_equal(expected_response, response_buffer, sizeof(expected_response));
+}
 
 static void ping_test(void **state) {
     // request: {"v": 1, "id": 12, "func": "ping", "args":[]}
@@ -178,6 +255,8 @@ static void lookup_test(void **state) {
 
 int main(void) {
     const struct CMUnitTest tests[] = {
+            cmocka_unit_test(sum_array_test),
+            cmocka_unit_test(sum_array_bad_types_test),
             cmocka_unit_test(ping_test),
             cmocka_unit_test(echo_test),
             cmocka_unit_test(error_test),

@@ -56,6 +56,8 @@ def generate_api(path, rpc_table):
 
     with open(os.path.join(path, "rpc_api.c"), 'w') as f:
         f.write(c_template.render(**template_args))
+        f.write("\n")  # add a new line for pedantic warnings
 
     with open(os.path.join(path, "rpc_api.h"), 'w') as f:
         f.write(h_template.render(**template_args))
+        f.write("\n")

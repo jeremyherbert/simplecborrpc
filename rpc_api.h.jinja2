@@ -12,7 +12,7 @@ rpc_error_t rpc_@= func =@(const CborValue *args_iterator, CborEncoder *result, 
 
 static const rpc_function_entry_t rpc_function_table[] = {
     @@ for func, args in rpc_functions @@
-    {"@= func =@", rpc_@= func =@, RPC_ARGS(@= args =@)}@= ',' if not loop.last =@
+    {"@= func =@", rpc_@= func =@, @@ if args @@RPC_ARGS(@= args =@)@@ else @@RPC_NO_ARGS@@ endif @@}@= ',' if not loop.last =@
     @@ endfor @@
 };
 
