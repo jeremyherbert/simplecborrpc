@@ -111,7 +111,7 @@ static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_fun
 
             } else if (cbor_value_is_integer(&inner_it)) {
                 // access by index
-                cbor_value_get_int(&inner_it, &function_index);
+                cbor_value_get_int(&inner_it, (int *)&function_index);
 
                 if (rpc_lookup_key_by_index(function_index) == NULL) return RPC_ERROR_METHOD_NOT_FOUND;
 
