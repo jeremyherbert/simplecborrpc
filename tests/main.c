@@ -4,6 +4,7 @@
 #include <setjmp.h>
 #include "cmocka.h"
 
+#include "nested_validator.h"
 #include "simplecborrpc.h"
 #include "rpc_api.h"
 

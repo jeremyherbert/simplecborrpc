@@ -3,21 +3,23 @@ import os
 import jinja2
 from perfect_hash import generate_hash, Hash2
 
+
 @unique
 class CborTypes(Enum):
-    CBOR_TYPE_NULL = auto()
-    CBOR_TYPE_BOOL = auto()
-    CBOR_TYPE_SIMPLE = auto()
-    CBOR_TYPE_SIGNED_INTEGER = auto()
-    CBOR_TYPE_UNSIGNED_INTEGER = auto()
-    CBOR_TYPE_NEGATIVE_INTEGER = auto()
-    CBOR_TYPE_HALF_FLOAT = auto()
-    CBOR_TYPE_FLOAT = auto()
-    CBOR_TYPE_DOUBLE = auto()
-    CBOR_TYPE_TEXT_STRING = auto()
-    CBOR_TYPE_BYTE_STRING = auto()
-    CBOR_TYPE_ARRAY = auto()
-    CBOR_TYPE_MAP = auto()
+    CBOR_TYPE_UNDEFINED = 0
+    CBOR_TYPE_NULL = 1
+    CBOR_TYPE_BOOL = 2
+    CBOR_TYPE_SIMPLE = 3
+    CBOR_TYPE_SIGNED_INTEGER = 4
+    CBOR_TYPE_UNSIGNED_INTEGER = 5
+    CBOR_TYPE_NEGATIVE_INTEGER = 6
+    CBOR_TYPE_HALF_FLOAT = 7
+    CBOR_TYPE_FLOAT = 8
+    CBOR_TYPE_DOUBLE = 9
+    CBOR_TYPE_TEXT_STRING = 10
+    CBOR_TYPE_BYTE_STRING = 11
+    CBOR_TYPE_ARRAY = 12
+    CBOR_TYPE_MAP = 13
 
 
 def split_hex(num: int):
