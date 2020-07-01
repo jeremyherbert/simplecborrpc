@@ -34,8 +34,8 @@ static bool rpc_strlen(const char *s1) {
     return i;
 }
 
-int32_t rpc_lookup_index_by_key(const char *key) {
-    int32_t index = 0;
+size_t rpc_lookup_index_by_key(const char *key) {
+    size_t index = 0;
     if (rpc_strlen(key) <= salt_size) {
         index = (rpc_hash(key, rpc_hash_salt1) + rpc_hash(key, rpc_hash_salt2)) % rpc_hash_graph_size;
     }
