@@ -1,7 +1,7 @@
 from enum import Enum, auto, unique
 import os
 import jinja2
-from perfect_hash import generate_hash, Hash2
+from perfect_hash import generate_hash, IntSaltHash
 
 
 @unique
@@ -31,19 +31,25 @@ def split_hex(num: int):
     return output
 
 
-def generate_api(path, rpc_table):
+def generate_api(path, rpc_table_in):
     current_path = os.path.dirname(os.path.realpath(__file__))
 
-    key_index = list(zip(rpc_table.keys(), range(len(rpc_table))))
-    f1, f2, G = generate_hash(dict(key_index), Hash2)
+    rpc_table = rpc_table_in
 
-    env = jinja2.Environment(loader=jinja2.FileSystemLoader(current_path), trim_blocks=True,block_start_string='@@',block_end_string='@@',variable_start_string='@=', variable_end_string='=@')
+    rpc_funcs = list(rpc_table.keys())
+    rpc_funcs.insert(0, "__funcs")
+    rpc_table["__funcs"] = []
+    print(rpc_funcs)
+    f1, f2, G = generate_hash(rpc_funcs, Hash=IntSaltHash)
+
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader(current_path), trim_blocks=True, block_start_string='@@',
+                             block_end_string='@@', variable_start_string='@=', variable_end_string='=@')
 
     c_template = env.get_template("rpc_api.c.jinja2")
     h_template = env.get_template("rpc_api.h.jinja2")
 
     rpc_functions = []
-    for key, index in key_index:
+    for index, key in enumerate(rpc_funcs):
         val = rpc_table[key]
         tmp = [key, ', '.join(x.name for x in val)]
         rpc_functions.append(tmp)
@@ -53,7 +59,7 @@ def generate_api(path, rpc_table):
         'salt1': ', '.join("0x{:02X}".format(x) for x in f1.salt),
         'salt2': ', '.join("0x{:02X}".format(x) for x in f2.salt),
         'graph': ', '.join(str(x) for x in G),
-        'keys': ', '.join('"{}"'.format(x) for x, _ in key_index)
+        'keys': ', '.join('"{}"'.format(x) for x in rpc_funcs)
     }
 
     with open(os.path.join(path, "rpc_api.c"), 'w') as f:

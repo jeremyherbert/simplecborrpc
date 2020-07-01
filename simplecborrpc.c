@@ -2,7 +2,34 @@
 
 #include "simplecborrpc.h"
 
-extern int rpc_lookup_by_key(const char *key);
+extern int rpc_lookup_index_by_key(const char *key);
+extern const char *rpc_lookup_key_by_index(size_t index);
+extern size_t rpc_get_key_count();
+
+rpc_error_t
+rpc___funcs(const CborValue *args_iterator, CborEncoder *result, const char **error_msg, void *user_ptr) {
+    size_t count = 0;
+    for (size_t i=0; i<rpc_get_key_count(); i++) {
+        const char *key = rpc_lookup_key_by_index(i);
+        if (key == NULL || key[0] == '_') continue;
+        count++;
+    }
+
+    CborEncoder map_encoder;
+    cbor_encoder_create_map(result, &map_encoder, count);
+
+    for (size_t i=0; i<rpc_get_key_count(); i++) {
+        const char *key = rpc_lookup_key_by_index(i);
+        if (key == NULL || key[0] == '_') continue;
+
+        cbor_encode_text_stringz(&map_encoder, key);
+        cbor_encode_int(&map_encoder, i);
+    }
+
+    cbor_encoder_close_container(result, &map_encoder);
+
+    return RPC_OK;
+}
 
 static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_functions, size_t rpc_functions_count,
                                              const uint8_t *input_buffer, size_t input_buffer_size,
@@ -69,18 +96,29 @@ static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_fun
         if (result) {
             if (cbor_value_advance(&inner_it) != CborNoError) return RPC_ERROR_PARSER_FAILED;
 
-            if (!cbor_value_is_text_string(&inner_it)) return RPC_ERROR_INVALID_REQUEST;
+            int32_t function_index;
+            if (cbor_value_is_text_string(&inner_it)) {
+                char tmp[33];
+                size_t key_size = 33;
+                if (cbor_value_copy_text_string(&inner_it, tmp, &key_size, NULL) != CborNoError) return RPC_ERROR_PARSER_FAILED;
 
-            char tmp[33];
-            size_t key_size = 33;
-            if (cbor_value_copy_text_string(&inner_it, tmp, &key_size, NULL) != CborNoError) return RPC_ERROR_PARSER_FAILED;
+                if (key_size == 33) return RPC_ERROR_INVALID_REQUEST; // max size is 32 chars + null terminator
 
-            if (key_size == 33) return RPC_ERROR_INVALID_REQUEST; // max size is 32 chars + null terminator
+                function_index = rpc_lookup_index_by_key(tmp);
 
-            int32_t function_index = rpc_lookup_by_key(tmp);
+                if (function_index < 0) return RPC_ERROR_METHOD_NOT_FOUND;
+                else handle = function_index;
 
-            if (function_index < 0) return RPC_ERROR_METHOD_NOT_FOUND;
-            else handle = function_index;
+            } else if (cbor_value_is_integer(&inner_it)) {
+                // access by index
+                cbor_value_get_int(&inner_it, &function_index);
+
+                if (rpc_lookup_key_by_index(function_index) == NULL) return RPC_ERROR_METHOD_NOT_FOUND;
+
+                handle = function_index;
+            } else {
+                return RPC_ERROR_INVALID_REQUEST;
+            }
 
             if (cbor_value_advance(&inner_it) != CborNoError) return RPC_ERROR_PARSER_FAILED;
 

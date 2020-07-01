@@ -34,7 +34,7 @@ static bool rpc_strlen(const char *s1) {
     return i;
 }
 
-int32_t rpc_lookup_by_key(const char *key) {
+int32_t rpc_lookup_index_by_key(const char *key) {
     int32_t index = 0;
     if (rpc_strlen(key) <= salt_size) {
         index = (rpc_hash(key, rpc_hash_salt1) + rpc_hash(key, rpc_hash_salt2)) % rpc_hash_graph_size;
@@ -45,4 +45,13 @@ int32_t rpc_lookup_by_key(const char *key) {
     }
 
     return -1;
+}
+
+const char *rpc_lookup_key_by_index(size_t index) {
+    if (index >= rpc_get_key_count()) return NULL;
+    return rpc_hash_table[index];
+}
+
+size_t rpc_get_key_count() {
+    return rpc_hash_num_keys;
 }

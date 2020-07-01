@@ -7,5 +7,6 @@ generate_api(current_path, {
     "ping": [],
     "echo": [CborTypes.CBOR_TYPE_TEXT_STRING],
     "always_error": [],
-    "sum_array": [CborTypes.CBOR_TYPE_ARRAY]
+    "sum_array": [CborTypes.CBOR_TYPE_ARRAY],
+    "_hidden_ping": []
 })
