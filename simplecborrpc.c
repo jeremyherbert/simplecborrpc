@@ -2,6 +2,8 @@
 
 #include "simplecborrpc.h"
 
+#define CHECK_CBOR_ENCODE(X) if (X != CborNoError) { return RPC_ENCODE_ERROR; }
+
 static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_functions, size_t rpc_functions_count,
                                              const uint8_t *input_buffer, size_t input_buffer_size,
                                              uint8_t *output_buffer, size_t *output_buffer_size,
@@ -197,9 +199,12 @@ static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_fun
                                                                 user_ptr);
 
     cbor_encoder_close_container(&response_encoder, &map_encoder);
-    *output_buffer_size = cbor_encoder_get_buffer_size(&response_encoder, output_buffer);
-
-    return rpc_result;
+    if (cbor_encoder_get_extra_bytes_needed(&response_encoder) != 0) {
+        return RPC_ERROR_ENCODE_ERROR;
+    } else {
+        *output_buffer_size = cbor_encoder_get_buffer_size(&response_encoder, output_buffer);
+        return rpc_result;
+    }
 }
 
 static const char *error_to_string(rpc_error_t error) {
@@ -224,6 +229,10 @@ static const char *error_to_string(rpc_error_t error) {
     }
 }
 
+static const uint8_t encode_error_response[] = {0xA2, 0x62, 0x69, 0x64, 0x0D, 0x63, 0x65, 0x72, 0x72, 0xA2, 0x61, 0x63, 0x39, 0x7D, 0x62, 0x63, 0x6D, 0x73, 0x67, 0x6C, 0x65, 0x6E, 0x63, 0x6F, 0x64, 0x65, 0x5F, 0x65, 0x72, 0x72, 0x6F, 0x72};
+
+#define CHECK_CBOR_ENCODE_OR_SET(X, Y) if (X != CborNoError) { Y = false; }
+
 rpc_error_t
 execute_rpc_call(const rpc_function_entry_t *rpc_functions, size_t rpc_functions_count, const uint8_t *input_buffer,
                  size_t input_buffer_size, uint8_t *output_buffer, size_t *output_buffer_size,
@@ -238,6 +247,8 @@ execute_rpc_call(const rpc_function_entry_t *rpc_functions, size_t rpc_functions
                                                 &error_msg, user_ptr);
 
     if (err != RPC_OK || error_msg != NULL) {
+        bool failed_error_encode = false;
+
         size_t map_key_count = 1;
         if (transaction_id != 0) {
             map_key_count = 2;
@@ -270,7 +281,17 @@ execute_rpc_call(const rpc_function_entry_t *rpc_functions, size_t rpc_functions
 
         cbor_encoder_close_container(&response_encoder, &map_encoder);
 
-        *output_buffer_size = cbor_encoder_get_buffer_size(&response_encoder, output_buffer);
+        if (cbor_encoder_get_extra_bytes_needed(&error_map_encoder) != 0) {
+            if (*output_buffer_size > sizeof(encode_error_response)) {
+                memcpy(output_buffer, encode_error_response, sizeof(encode_error_response));
+                *output_buffer_size = sizeof(encode_error_response);
+            } else {
+                *output_buffer_size = 0;
+                return RPC_ERROR_ENCODE_ERROR;
+            }
+        } else {
+            *output_buffer_size = cbor_encoder_get_buffer_size(&response_encoder, output_buffer);
+        }
     }
 
     return err;

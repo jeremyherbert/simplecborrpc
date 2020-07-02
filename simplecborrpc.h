@@ -37,6 +37,8 @@ typedef enum {
     RPC_ERROR_METHOD_NOT_FOUND = -32601,
     RPC_ERROR_INVALID_ARGS = -32602,
     RPC_ERROR_INTERNAL_ERROR = -32603,
+
+    RPC_ERROR_ENCODE_ERROR = -32099
 } rpc_error_t;
 
 typedef rpc_error_t (*rpc_function_t)(const CborValue *args_iterator, CborEncoder *result, const char **error_msg,

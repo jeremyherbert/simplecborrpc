@@ -400,6 +400,47 @@ static void method_not_found_test(void **state) {
     assert_memory_equal(expected_response, response_buffer, response_size);
 }
 
+static void error_buffer_too_small_test(void **state) {
+    // request: {"id": 12, "func": "always_error", "args":[]}
+    uint8_t request[] = {0xA3, 0x62, 0x69, 0x64, 0x0C,
+                         0x64, 0x66, 0x75, 0x6E, 0x63,
+                         0x6C, 0x61, 0x6C, 0x77, 0x61,
+                         0x79, 0x73, 0x5F, 0x65, 0x72,
+                         0x72, 0x6F, 0x72, 0x64, 0x61,
+                         0x72, 0x67, 0x73, 0x80};
+
+    uint8_t response_buffer[512];
+    memset(response_buffer, 0, sizeof(response_buffer));
+    size_t response_size = 0;
+
+    rpc_error_t err = execute_rpc_call(rpc_function_table, SIMPLECBORRPC_FUNCTION_COUNT, request, sizeof(request), response_buffer,
+                                       &response_size, NULL);
+    assert_true(err == RPC_ERROR_ENCODE_ERROR);
+    assert_int_equal(response_size, 0);
+}
+
+static void ping_response_buffer_too_small_test(void **state) {
+    // request: {"id": 12, "func": "__ping"}
+    uint8_t request[] = {0xA2, 0x62, 0x69, 0x64, 0x0C,
+                         0x64, 0x66, 0x75, 0x6E, 0x63,
+                         0x66, 0x5F, 0x5F, 0x70, 0x69,
+                         0x6E, 0x67};
+
+    // response: {"id": 12, "res": "pong"}
+//    uint8_t expected_response[] = {0xA2, 0x62, 0x69, 0x64, 0x0C,
+//                                   0x63, 0x72, 0x65, 0x73, 0x64,
+//                                   0x70, 0x6F, 0x6E, 0x67};
+
+    uint8_t response_buffer[512];
+    memset(response_buffer, 0, sizeof(response_buffer));
+    size_t response_size = 10;
+
+    rpc_error_t err = execute_rpc_call(rpc_function_table, SIMPLECBORRPC_FUNCTION_COUNT, request, sizeof(request), response_buffer,
+                                       &response_size, NULL);
+    assert_true(err == RPC_ERROR_ENCODE_ERROR);
+    assert_int_equal(response_size, 0);
+}
+
 int main(void) {
     const struct CMUnitTest tests[] = {
             cmocka_unit_test(version_test),
@@ -417,6 +458,9 @@ int main(void) {
             cmocka_unit_test(error_test),
             cmocka_unit_test(method_not_found_test),
             cmocka_unit_test(sum_array_bad_types_test),
+
+            cmocka_unit_test(error_buffer_too_small_test),
+            cmocka_unit_test(ping_response_buffer_too_small_test),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
