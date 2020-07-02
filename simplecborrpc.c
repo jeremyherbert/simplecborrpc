@@ -247,8 +247,6 @@ execute_rpc_call(const rpc_function_entry_t *rpc_functions, size_t rpc_functions
                                                 &error_msg, user_ptr);
 
     if (err != RPC_OK || error_msg != NULL) {
-        bool failed_error_encode = false;
-
         size_t map_key_count = 1;
         if (transaction_id != 0) {
             map_key_count = 2;
