@@ -224,6 +224,15 @@ static const char *error_to_string(rpc_error_t error) {
         case RPC_ERROR_PARSER_FAILED:
             return "Internal error (parser failed)";
 
+        case RPC_ERROR_INVALID_REQUEST:
+            return "Invalid request";
+
+        case RPC_ERROR_INTERNAL_ERROR:
+            return "Internal error";
+
+        case RPC_ERROR_ENCODE_ERROR:
+            return "Encode error";
+
         default:
             return "Unknown error";
     }
