@@ -64,4 +64,8 @@ execute_rpc_call(const rpc_function_entry_t *rpc_functions, size_t rpc_functions
                  size_t input_buffer_size, uint8_t *output_buffer, size_t *output_buffer_size,
                  void *user_ptr);
 
+size_t rpc_lookup_index_by_key(const char *key);
+const char *rpc_lookup_key_by_index(size_t index);
+size_t rpc_get_key_count();
+
 #endif //SIMPLECBORRPC_SIMPLECBORRPC_H

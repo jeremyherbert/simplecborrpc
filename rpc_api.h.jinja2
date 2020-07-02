@@ -16,8 +16,6 @@ static const rpc_function_entry_t rpc_function_table[] = {
     @@ endfor @@
 };
 
-size_t rpc_lookup_index_by_key(const char *key);
-const char *rpc_lookup_key_by_index(size_t index);
-size_t rpc_get_key_count();
+#define SIMPLECBORRPC_FUNCTION_COUNT sizeof(rpc_function_table)/sizeof(rpc_function_entry_t)
 
 #endif //SIMPLECBORRPC_API_H

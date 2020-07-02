@@ -37,8 +37,16 @@ def generate_api(path, rpc_table_in):
     rpc_table = rpc_table_in
 
     rpc_funcs = list(rpc_table.keys())
+
+    rpc_funcs.insert(0, "__version")
+    rpc_table["__version"] = []
+
+    rpc_funcs.insert(0, "__ping")
+    rpc_table["__ping"] = []
+
     rpc_funcs.insert(0, "__funcs")
     rpc_table["__funcs"] = []
+
     print(rpc_funcs)
     f1, f2, G = generate_hash(rpc_funcs, Hash=IntSaltHash)
 

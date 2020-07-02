@@ -2,35 +2,6 @@
 
 #include "simplecborrpc.h"
 
-extern int rpc_lookup_index_by_key(const char *key);
-extern const char *rpc_lookup_key_by_index(size_t index);
-extern size_t rpc_get_key_count();
-
-rpc_error_t
-rpc___funcs(const CborValue *args_iterator, CborEncoder *result, const char **error_msg, void *user_ptr) {
-    size_t count = 0;
-    for (size_t i=0; i<rpc_get_key_count(); i++) {
-        const char *key = rpc_lookup_key_by_index(i);
-        if (key == NULL || key[0] == '_') continue;
-        count++;
-    }
-
-    CborEncoder map_encoder;
-    cbor_encoder_create_map(result, &map_encoder, count);
-
-    for (size_t i=0; i<rpc_get_key_count(); i++) {
-        const char *key = rpc_lookup_key_by_index(i);
-        if (key == NULL || key[0] == '_') continue;
-
-        cbor_encode_text_stringz(&map_encoder, key);
-        cbor_encode_int(&map_encoder, i);
-    }
-
-    cbor_encoder_close_container(result, &map_encoder);
-
-    return RPC_OK;
-}
-
 static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_functions, size_t rpc_functions_count,
                                              const uint8_t *input_buffer, size_t input_buffer_size,
                                              uint8_t *output_buffer, size_t *output_buffer_size,
@@ -40,10 +11,10 @@ static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_fun
     CborValue outer_it;
     CborValue inner_it, args_it;
 
-    if (cbor_parser_init(input_buffer, input_buffer_size, 0, &parser, &outer_it) != CborNoError)
+    size_t flags = CborValidateMapKeysAreUnique | CborValidateNoIndeterminateLength | CborValidateNoUndefined | CborValidateCompleteData;
+    if (cbor_parser_init(input_buffer, input_buffer_size, flags, &parser, &outer_it) != CborNoError)
         return RPC_ERROR_INTERNAL_ERROR;
 
-    uint64_t version = 0;
     size_t handle = rpc_functions_count;
     size_t args_count = 0;
 
@@ -68,20 +39,6 @@ static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_fun
         if (!cbor_value_is_text_string(&inner_it)) return RPC_ERROR_INVALID_REQUEST;
 
         bool result = false;
-        cbor_value_text_string_equals(&inner_it, "v", &result);
-        if (result) {
-            if (cbor_value_advance(&inner_it) != CborNoError) return RPC_ERROR_PARSER_FAILED;
-
-            if (!cbor_value_is_unsigned_integer(&inner_it)) return RPC_ERROR_INVALID_REQUEST;
-
-            if (cbor_value_get_uint64(&inner_it, &version) != CborNoError) return RPC_ERROR_PARSER_FAILED;
-
-            if (version != 1) return RPC_ERROR_INVALID_REQUEST;
-
-            if (cbor_value_advance(&inner_it) != CborNoError) return RPC_ERROR_PARSER_FAILED;
-
-            continue;
-        }
 
         cbor_value_text_string_equals(&inner_it, "id", &result);
         if (result) {
@@ -219,18 +176,15 @@ static rpc_error_t execute_rpc_call_internal(const rpc_function_entry_t *rpc_fun
     }
 
     // execute rpc function
-    size_t result_key_count = 2;
+    size_t result_key_count = 1;
     if (*transaction_id != 0) {
-        result_key_count = 3;
+        result_key_count = 2;
     }
 
     CborEncoder response_encoder, map_encoder;
 
     cbor_encoder_init(&response_encoder, output_buffer, *output_buffer_size, 0);
     cbor_encoder_create_map(&response_encoder, &map_encoder, result_key_count);
-
-    cbor_encode_text_stringz(&map_encoder, "v");
-    cbor_encode_uint(&map_encoder, 1);
 
     if (*transaction_id != 0) {
         cbor_encode_text_stringz(&map_encoder, "id");
@@ -284,18 +238,15 @@ execute_rpc_call(const rpc_function_entry_t *rpc_functions, size_t rpc_functions
                                                 &error_msg, user_ptr);
 
     if (err != RPC_OK || error_msg != NULL) {
-        size_t map_key_count = 2;
+        size_t map_key_count = 1;
         if (transaction_id != 0) {
-            map_key_count = 3;
+            map_key_count = 2;
         }
 
         CborEncoder response_encoder, map_encoder;
 
         cbor_encoder_init(&response_encoder, output_buffer, saved_buffer_size, 0);
         cbor_encoder_create_map(&response_encoder, &map_encoder, map_key_count);
-
-        cbor_encode_text_stringz(&map_encoder, "v");
-        cbor_encode_uint(&map_encoder, 1);
 
         if (transaction_id != 0) {
             cbor_encode_text_stringz(&map_encoder, "id");
