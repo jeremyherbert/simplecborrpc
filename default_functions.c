@@ -22,7 +22,9 @@ rpc___funcs(const CborValue *args_iterator, CborEncoder *result, const char **er
         cbor_encode_int(&map_encoder, i);
     }
 
-    cbor_encoder_close_container(result, &map_encoder);
+    if (cbor_encoder_close_container(result, &map_encoder) != CborNoError) {
+        return RPC_ERROR_ENCODE_ERROR;
+    }
 
     return RPC_OK;
 }
